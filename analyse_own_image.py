@@ -55,7 +55,9 @@ class OwnImageWindow:
         self.figure=Figure(figsize=(10,6),layout='constrained');self.axes=self.figure.subplots(1,3)
         self.canvas=FigureCanvasTkAgg(self.figure,master=viewer);self.canvas.get_tk_widget().pack(fill='both',expand=True)
         NavigationToolbar2Tk(self.canvas,viewer)
+        self.initializing=True
         self.channel_choices(reset=False);self.load()
+        self.initializing=False
 
     def channel_choices(self,reset=True):
         page=self.info['pages'][int(self.values['page'].get())]
@@ -84,10 +86,12 @@ class OwnImageWindow:
             self.threshold.set(self.args.threshold if self.args.threshold is not None else (lo+hi)/2)
             self.plane_info.set(f"Selected {roi.shape}, {roi.dtype}; range {lo:g} to {hi:g}.\nInitial midpoint is a starting guess, not validated segmentation.")
             self.preview()
-        except (ValueError,OSError,ImportError) as error:self.error(error)
+        except (ValueError,OSError,ImportError) as error:
+            if self.initializing:self.message.set(str(error).replace('Choose --channel INDEX','Select a Channel and click Load'))
+            else:self.error(error)
 
     def settings(self):
-        if not hasattr(self,'plane'):raise ValueError('Load a valid plane first.')
+        if not hasattr(self,'plane') or not hasattr(self,'loaded_selection'):raise ValueError('Load a valid plane and crop first.')
         current=(self.values['page'].get(),self.values['channel'].get(),self.values['crop'].get())
         if current!=self.loaded_selection:raise ValueError('Page/channel/crop changed. Click Load selected plane / crop first.')
         r0,r1,c0,c1=self.crop
@@ -120,8 +124,9 @@ class OwnImageWindow:
     def export(self):
         from microscopy.user_images import export_user_analysis
         try:
+            settings=self.settings()
             text=self.values['nm_per_pixel'].get().strip();calibration=None if not text else float(text)
-            self.last_run,summary=export_user_analysis(Path(__file__).resolve().parent,self.path,self.plane,self.selection,self.settings(),calibration,
+            self.last_run,summary=export_user_analysis(Path(__file__).resolve().parent,self.path,self.plane,self.selection,settings,calibration,
                                    'User-entered isotropic scale; not independently verified' if calibration is not None else 'not provided')
             self.message.set('Saved '+self.last_run.name+'. Open report or review exported particles.');print('Report:',self.last_run/'report.html',flush=True)
         except (ValueError,OSError,ImportError) as error:self.error(error)
