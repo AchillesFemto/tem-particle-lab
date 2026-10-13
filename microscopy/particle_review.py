@@ -122,6 +122,8 @@ class ParticleReview:
         fields=list(rows[0]) if rows else ['label','review_status','eligible_reviewed_measurement']
         save_csv(output/'reviewed_regions.csv',rows,fields)
         save_csv(output/'accepted_complete_regions.csv',[r for r in rows if r['eligible_reviewed_measurement']],fields)
+        from .user_extensions import save_distributions
+        save_distributions(output,rows,self.metadata['nm_per_pixel'],reviewed_only=True)
         summary=dict(total_regions=len(rows),status_counts={s:sum(v==s for v in self.status.values()) for s in STATUSES},
                      accepted_complete_count=sum(r['eligible_reviewed_measurement'] for r in rows),
                      crop_border_regions=sum(r['touches_crop_border'] for r in rows),

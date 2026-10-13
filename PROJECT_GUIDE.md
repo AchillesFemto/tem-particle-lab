@@ -95,8 +95,10 @@ Generate your own analysis first; no contributor's timestamped results are inclu
 
 The last two commands print their selected run and dataset. Without arguments, they select the newest compatible saved run by configuration-snapshot modification time and prefer its first successful development dataset. Incomplete runs are skipped. To ensure a particular input, supply `--run results/YOUR_RUN --dataset YOUR_DATASET_ID`. Missing outputs produce instructions to generate a run instead of a traceback pointing to the author's computer.
 
-See [Particle review and rod dimensions](PARTICLE_REVIEW_AND_RODS.md) for measurements, controls and limitations. New particle reviews start pending; saved reviews resume with their recorded statuses. The local test suite currently has **35 passing tests**, covering numerical calculations, review edits, geometry, provenance and portable run selection. Hosted GitHub Actions remains unverified until this project is uploaded and CI actually runs.
+See [Particle review and rod dimensions](PARTICLE_REVIEW_AND_RODS.md) for measurements, controls and limitations. New particle reviews start pending; saved reviews resume with their recorded statuses. The local test suite currently has **44 passing tests**, covering numerical calculations, review edits, geometry, provenance, preprocessing, reference checks and user-image batches. Consult the latest GitHub Actions run for hosted verification; successful local tests alone do not establish hosted CI success.
 
 ## Analyse your own TIFF
 
 Run `.\.venv\Scripts\python.exe analyse_own_image.py` to choose a TIFF, preview segmentation and export particle measurements without reference annotations. See [Your own images](YOUR_OWN_IMAGES.md) for page/channel selection, native intensity thresholds, calibration, crop and review. Personal input images are read locally; keep them outside Git or in ignored `data/private/`.
+
+[User-image extensions](USER_IMAGE_EXTENSIONS.md) cover optional preprocessing, complete automatic/reviewed distributions, manual endpoints, sequential per-image batches and optional aligned instance references. The raw TIFF remains unchanged.

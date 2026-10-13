@@ -1,6 +1,6 @@
 # Measure particles in your own TIFF
 
-This workflow accepts your TIFF directly. No manual reference mask, polygon annotations or public example dataset is required. It produces automatic measurements and a boundary preview; it does not claim that those predictions are correct without review.
+This workflow accepts your TIFF directly. No manual reference mask, polygon annotations or public example dataset is required. It produces automatic measurements and a boundary preview; it does not claim that those predictions are correct without review. [User-image extensions](USER_IMAGE_EXTENSIONS.md) now add optional preprocessing, distributions, manual endpoint checks, batches and instance-reference validation.
 
 ## Start with the file chooser
 
@@ -62,7 +62,7 @@ Click **Export measurements + report**. A new ignored `results/<run>/` folder co
 
 All exported automatic regions start Pending. Click **Review exported particles** to open the existing versioned review tool, or run the exact review command printed in the console. Human corrections and accepted complete measurements remain separate from the automatic output. Source TIFFs are not uploaded by this workflow; local run folders and review records are ignored by Git. Keep your own raw TIFF outside the repository, or in ignored `data/private/`, to avoid accidentally staging it yourself.
 
-An empty overlap table is saved only for compatibility with the existing run selector; it contains no invented annotations or agreement scores. Reference-error metrics are unavailable without independent annotations. The `measure_rods.py` command also recognises these runs and points to their already-exported diameter/shape measurements rather than demanding a reference file.
+When no reference is supplied, an empty overlap table is saved only for compatibility with the existing run selector; it contains no invented annotations or agreement scores. Reference-error metrics are unavailable without independent annotations. Optional instance-label TIFF references can now be supplied with `--reference` or the window's reference chooser. The `measure_rods.py` command recognises these runs and points to their already-exported diameter/shape measurements rather than demanding a reference file.
 
 ## Noninteractive example
 

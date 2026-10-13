@@ -14,7 +14,14 @@ class OwnImageWindow:
         self.root=root;self.path=Path(path);self.args=args;self.last_run=None
         root.title('TEM Particle Lab - analyse your own TIFF');root.geometry('1250x850')
         info=inspect_tiff(path);self.info=info
-        control=ttk.Frame(root,padding=10);control.pack(side='left',fill='y')
+        sidebar=ttk.Frame(root,padding=5);sidebar.pack(side='left',fill='y')
+        scroll_canvas=tk.Canvas(sidebar,width=310,highlightthickness=0)
+        scrollbar=ttk.Scrollbar(sidebar,orient='vertical',command=scroll_canvas.yview)
+        scroll_canvas.configure(yscrollcommand=scrollbar.set);scrollbar.pack(side='right',fill='y');scroll_canvas.pack(side='left',fill='both',expand=True)
+        control=ttk.Frame(scroll_canvas,padding=5);scroll_canvas.create_window((0,0),window=control,anchor='nw')
+        control.bind('<Configure>',lambda event:scroll_canvas.configure(scrollregion=scroll_canvas.bbox('all')))
+        scroll_canvas.bind('<Enter>',lambda event:scroll_canvas.bind_all('<MouseWheel>',lambda e:scroll_canvas.yview_scroll(int(-e.delta/120),'units')))
+        scroll_canvas.bind('<Leave>',lambda event:scroll_canvas.unbind_all('<MouseWheel>'))
         viewer=ttk.Frame(root);viewer.pack(side='right',fill='both',expand=True)
         ttk.Label(control,text='Your TIFF particle analysis',font=('',12,'bold')).pack(anchor='w')
         ttk.Label(control,text=self.path.name,wraplength=265).pack(anchor='w',pady=5)
@@ -34,6 +41,9 @@ class OwnImageWindow:
         self.plane_info=tk.StringVar();ttk.Label(control,textvariable=self.plane_info,wraplength=265).pack(anchor='w')
         field('polarity','Foreground',args.polarity,['dark','bright'])
         field('method','Particle separation',args.method,['connected','watershed'])
+        field('gaussian_sigma','Gaussian sigma (px)',getattr(args,'gaussian_sigma',0))
+        field('background_radius','Background half-window',getattr(args,'background_radius',0))
+        ttk.Label(control,text='0 = off. Smoothing can blur boundaries.\nBackground correction changes threshold values.',wraplength=265).pack(anchor='w',pady=3)
         self.threshold=tk.DoubleVar(value=0)
         ttk.Label(control,text='Threshold: native intensity units').pack(anchor='w',pady=(6,0))
         self.scale=tk.Scale(control,variable=self.threshold,orient='horizontal',length=265,resolution=1)
@@ -45,14 +55,18 @@ class OwnImageWindow:
         field('min_peak_height','Minimum distance (px)',args.min_peak_height)
         field('min_seed_separation','Seed separation (px)',args.min_seed_separation)
         field('prominence','Peak prominence fraction',args.prominence)
+        field('histogram_bins','Histogram bins',getattr(args,'histogram_bins',12))
+        field('reference','Instance reference TIFF','' if getattr(args,'reference',None) is None else args.reference)
+        ttk.Button(control,text='Choose optional reference',command=self.choose_reference).pack(fill='x',pady=3)
         ttk.Label(control,text='Seed controls apply to watershed only.\nConnected mode leaves touching objects merged.',wraplength=265).pack(anchor='w',pady=4)
         ttk.Button(control,text='Update segmentation preview',command=self.preview).pack(fill='x',pady=3)
         ttk.Button(control,text='Export measurements + report',command=self.export).pack(fill='x',pady=3)
         ttk.Button(control,text='Review exported particles',command=self.review).pack(fill='x',pady=3)
+        ttk.Button(control,text='Manual endpoint measurements',command=self.manual_measurements).pack(fill='x',pady=3)
         ttk.Button(control,text='Open exported report',command=self.open_report).pack(fill='x',pady=3)
         self.message=tk.StringVar(value='Exclude scale bars and text with a crop. Predictions need boundary review.')
         ttk.Label(control,textvariable=self.message,wraplength=265).pack(anchor='w',pady=5)
-        self.figure=Figure(figsize=(10,6),layout='constrained');self.axes=self.figure.subplots(1,3)
+        self.figure=Figure(figsize=(10,6),layout='constrained');self.axes=self.figure.subplots(1,4)
         self.canvas=FigureCanvasTkAgg(self.figure,master=viewer);self.canvas.get_tk_widget().pack(fill='both',expand=True)
         NavigationToolbar2Tk(self.canvas,viewer)
         self.initializing=True
@@ -81,9 +95,12 @@ class OwnImageWindow:
             r0,r1,c0,c1=self.crop
             if not 0<=r0<r1<=self.plane.shape[0] or not 0<=c0<c1<=self.plane.shape[1]:raise ValueError('Crop exceeds selected plane.')
             self.loaded_selection=(self.values['page'].get(),channel,self.values['crop'].get())
-            roi=self.plane[r0:r1,c0:c1];lo,hi=float(roi.min()),float(roi.max())
-            self.scale.configure(from_=lo,to=hi if hi>lo else lo+1,resolution=1 if roi.dtype.kind in 'ui' else max((hi-lo)/1000,1e-6))
-            self.threshold.set(self.args.threshold if self.args.threshold is not None else (lo+hi)/2)
+            roi=self.plane[r0:r1,c0:c1]
+            from microscopy.user_extensions import preprocess_image
+            working,_,_=preprocess_image(roi,float(self.values['gaussian_sigma'].get()),int(self.values['background_radius'].get()),self.values['polarity'].get())
+            lo,hi=float(working.min()),float(working.max())
+            self.scale.configure(from_=lo,to=hi if hi>lo else lo+1,resolution=max((hi-lo)/1000,1e-6) if self.values['gaussian_sigma'].get()!='0' or self.values['background_radius'].get()!='0' or roi.dtype.kind=='f' else 1)
+            self.threshold.set(self.args.threshold if self.args.threshold is not None and lo<=self.args.threshold<=hi else (lo+hi)/2)
             self.plane_info.set(f"Selected {roi.shape}, {roi.dtype}; range {lo:g} to {hi:g}.\nInitial midpoint is a starting guess, not validated segmentation.")
             self.preview()
         except (ValueError,OSError,ImportError) as error:
@@ -99,25 +116,35 @@ class OwnImageWindow:
                     polarity=self.values['polarity'].get(),method=self.values['method'].get(),
                     min_area=int(self.values['min_area'].get()),window_size=int(self.values['window_size'].get()),
                     min_peak_height=float(self.values['min_peak_height'].get()),min_seed_separation=float(self.values['min_seed_separation'].get()),
-                    prominence=float(self.values['prominence'].get()))
+                    prominence=float(self.values['prominence'].get()),gaussian_sigma=float(self.values['gaussian_sigma'].get()),
+                    background_radius=int(self.values['background_radius'].get()),histogram_bins=int(self.values['histogram_bins'].get()),
+                    link_fraction=getattr(self.args,'link_fraction',.1),min_match_iou=getattr(self.args,'min_match_iou',.5))
 
     def preview(self):
         import numpy as np
         from skimage.measure import regionprops,find_contours
-        from microscopy.user_images import segment_user_plane
+        from microscopy.user_images import process_and_segment
         try:
             settings=self.settings();r0,r1,c0,c1=self.crop;roi=self.plane[r0:r1,c0:c1]
-            candidate,labels,notes,stats=segment_user_plane(roi,**{k:v for k,v in settings.items() if k not in ['crop_rows','crop_columns']})
+            processed,background,candidate,labels,notes,stats=process_and_segment(roi,settings)
+            lo,hi=float(processed.min()),float(processed.max())
+            previous_threshold=float(self.threshold.get())
+            self.scale.configure(from_=lo,to=hi if hi>lo else lo+1,resolution=max((hi-lo)/1000,1e-6) if settings['gaussian_sigma'] or settings['background_radius'] or roi.dtype.kind=='f' else 1)
+            self.threshold.set(previous_threshold if lo<=previous_threshold<=hi else (lo+hi)/2)
+            if self.threshold.get()!=settings['threshold']:
+                settings['threshold']=float(self.threshold.get())
+                processed,background,candidate,labels,notes,stats=process_and_segment(roi,settings)
             for ax in self.axes:ax.clear();ax.set_axis_off()
             lo,hi=float(roi.min()),float(roi.max())
             self.axes[0].imshow(roi,cmap='gray',vmin=lo,vmax=hi);self.axes[0].set_title('Selected original plane')
-            self.axes[1].imshow(candidate,cmap='gray',vmin=0,vmax=1);self.axes[1].set_title('Threshold foreground')
-            self.axes[2].imshow(roi,cmap='gray',vmin=lo,vmax=hi);self.axes[2].set_title('Predictions: inspect outlines')
+            self.axes[1].imshow(processed,cmap='gray');self.axes[1].set_title('Processed working image')
+            self.axes[2].imshow(candidate,cmap='gray',vmin=0,vmax=1);self.axes[2].set_title('Threshold foreground')
+            self.axes[3].imshow(roi,cmap='gray',vmin=lo,vmax=hi);self.axes[3].set_title('Predictions: inspect outlines')
             regions=regionprops(labels)
             for p in regions:
                 a,b,_,_=p.bbox
-                for line in find_contours(np.pad(p.image,1),.5):self.axes[2].plot(line[:,1]+b-1,line[:,0]+a-1,color='cyan',lw=.8)
-                rr,cc=p.centroid;self.axes[2].text(cc,rr,str(p.label),color='yellow',fontsize=8,clip_on=True)
+                for line in find_contours(np.pad(p.image,1),.5):self.axes[3].plot(line[:,1]+b-1,line[:,0]+a-1,color='cyan',lw=.8)
+                rr,cc=p.centroid;self.axes[3].text(cc,rr,str(p.label),color='yellow',fontsize=8,clip_on=True)
             self.canvas.draw_idle();self.message.set(f"{len(regions)} predicted regions; {stats['seedless_foreground_pixels']} seedless foreground pixels. No reference validation. Exclude scale bars/text and review boundaries.")
         except (ValueError,OSError,ImportError) as error:self.error(error)
 
@@ -127,7 +154,8 @@ class OwnImageWindow:
             settings=self.settings()
             text=self.values['nm_per_pixel'].get().strip();calibration=None if not text else float(text)
             self.last_run,summary=export_user_analysis(Path(__file__).resolve().parent,self.path,self.plane,self.selection,settings,calibration,
-                                   'User-entered isotropic scale; not independently verified' if calibration is not None else 'not provided')
+                                   'User-entered isotropic scale; not independently verified' if calibration is not None else 'not provided',
+                                   reference_path=self.values['reference'].get().strip() or None)
             self.message.set('Saved '+self.last_run.name+'. Open report or review exported particles.');print('Report:',self.last_run/'report.html',flush=True)
         except (ValueError,OSError,ImportError) as error:self.error(error)
 
@@ -146,6 +174,20 @@ class OwnImageWindow:
         import webbrowser
         webbrowser.open((self.last_run/'report.html').as_uri())
 
+    def choose_reference(self):
+        from tkinter import filedialog
+        path=filedialog.askopenfilename(parent=self.root,title='Aligned full-plane instance-label TIFF; 0 = background',filetypes=[('TIFF labels','*.tif *.tiff')])
+        if path:self.values['reference'].set(path)
+
+    def manual_measurements(self):
+        if self.last_run is None:self.error(ValueError('Export this analysis first.'));return
+        from microscopy.particle_review import prepare_review
+        from manual_lengths import ManualLengthWindow
+        try:
+            model,image=prepare_review(Path(__file__).resolve().parent,self.last_run,'own_image')
+            self.length_window=ManualLengthWindow(model,image);self.length_window.fig.canvas.manager.show()
+        except (ValueError,OSError) as error:self.error(error)
+
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -163,6 +205,12 @@ def main():
     parser.add_argument('--min-peak-height',type=float,default=2)
     parser.add_argument('--min-seed-separation',type=float,default=5)
     parser.add_argument('--prominence',type=float,default=.25)
+    parser.add_argument('--gaussian-sigma',type=float,default=0)
+    parser.add_argument('--background-radius',type=int,default=0,help='Half-width of a square morphological background window; 0 = off.')
+    parser.add_argument('--histogram-bins',type=int,default=12)
+    parser.add_argument('--reference',type=Path,help='Optional aligned full-plane instance-label TIFF, background 0.')
+    parser.add_argument('--link-fraction',type=float,default=.1)
+    parser.add_argument('--min-match-iou',type=float,default=.5)
     args=parser.parse_args()
     interactive=args.gui or (args.threshold is None and not args.inspect)
     import matplotlib
@@ -184,9 +232,11 @@ def main():
         r0,r1,c0,c1=args.crop or [0,plane.shape[0],0,plane.shape[1]]
         settings=dict(crop_rows=[r0,r1],crop_columns=[c0,c1],threshold=args.threshold,polarity=args.polarity,
                       method=args.method,min_area=args.min_area,window_size=args.window_size,
-                      min_peak_height=args.min_peak_height,min_seed_separation=args.min_seed_separation,prominence=args.prominence)
+                      min_peak_height=args.min_peak_height,min_seed_separation=args.min_seed_separation,prominence=args.prominence,
+                      gaussian_sigma=args.gaussian_sigma,background_radius=args.background_radius,histogram_bins=args.histogram_bins,
+                      link_fraction=args.link_fraction,min_match_iou=args.min_match_iou)
         run,summary=export_user_analysis(Path(__file__).resolve().parent,args.image,plane,selection,settings,args.nm_per_pixel,
-                        'User-entered isotropic scale; not independently verified' if args.nm_per_pixel is not None else 'not provided')
+                        'User-entered isotropic scale; not independently verified' if args.nm_per_pixel is not None else 'not provided',reference_path=args.reference)
         print('Report:',run/'report.html');print('Measurements:',run/'own_image/regions.csv')
         print('Predicted regions:',summary['predicted_regions'],'; validation:',summary['validation_status'])
         print('Review command:',f'review_particles.py --run results/{run.name} --dataset own_image')

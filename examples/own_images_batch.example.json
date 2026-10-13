@@ -1,0 +1,26 @@
+{
+  "defaults": {
+    "method": "connected",
+    "polarity": "dark",
+    "min_area": 20,
+    "gaussian_sigma": 0,
+    "background_radius": 0,
+    "histogram_bins": 12
+  },
+  "images": [
+    {
+      "id": "sample_a",
+      "image": "../data/private/sample_a.tif",
+      "page": 0,
+      "threshold": 140,
+      "nm_per_pixel": null
+    },
+    {
+      "id": "sample_b",
+      "image": "../data/private/sample_b.tif",
+      "page": 0,
+      "threshold": 30000,
+      "nm_per_pixel": null
+    }
+  ]
+}

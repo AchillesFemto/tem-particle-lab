@@ -3,12 +3,15 @@ from datetime import datetime,timezone
 from pathlib import Path
 from uuid import uuid4
 import html
+import importlib.metadata
+import sys
 import numpy as np
 import tifffile
 from scipy import ndimage
 from skimage.measure import regionprops,find_contours
 from .core import segment,save_csv,save_json,fingerprint
 from .measurements import measure_labels,SHAPE_FIELDS
+from .user_extensions import preprocess_image,save_distributions,validate_instance_reference
 
 
 def inspect_tiff(path):
@@ -85,7 +88,14 @@ def segment_user_plane(plane,threshold,polarity='dark',method='connected',min_ar
     return candidate,labels,notes,stats
 
 
-def export_user_analysis(project,path,plane,selection,settings,nm_per_pixel=None,calibration_source='not provided'):
+def process_and_segment(roi,settings):
+    processed,background,processing_notes=preprocess_image(roi,settings.get('gaussian_sigma',0),settings.get('background_radius',0),settings.get('polarity','dark'))
+    keys=['threshold','polarity','method','min_area','window_size','min_peak_height','min_seed_separation','prominence']
+    candidate,labels,notes,stats=segment_user_plane(processed,**{k:settings[k] for k in keys if k in settings})
+    return processed,background,candidate,labels,processing_notes+notes,stats
+
+
+def export_user_analysis(project,path,plane,selection,settings,nm_per_pixel=None,calibration_source='not provided',reference_path=None,run_parent=None):
     """Write a new local run; no annotation file or image upload is required."""
     project=Path(project);path=Path(path).resolve()
     if selection.get('source_sha256')!=fingerprint(path):raise ValueError('Source TIFF changed after loading; reload it before exporting.')
@@ -93,12 +103,13 @@ def export_user_analysis(project,path,plane,selection,settings,nm_per_pixel=None
     r0,r1=settings['crop_rows'];c0,c1=settings['crop_columns']
     if not 0<=r0<r1<=plane.shape[0] or not 0<=c0<c1<=plane.shape[1]:raise ValueError('Crop must lie within the selected plane.')
     roi=plane[r0:r1,c0:c1]
-    candidate,labels,notes,stats=segment_user_plane(roi,**{k:v for k,v in settings.items() if k not in ['crop_rows','crop_columns']})
+    processed,background,candidate,labels,notes,stats=process_and_segment(roi,settings)
     stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'_user_'+uuid4().hex[:6]
-    run=project/'results'/stamp;folder=run/'own_image';folder.mkdir(parents=True)
+    run=(Path(run_parent) if run_parent else project/'results')/stamp;folder=run/'own_image';folder.mkdir(parents=True)
     entry=dict(id='own_image',role='user_image',kind='user_image',image=str(path),nm_per_pixel=nm_per_pixel,selection=selection)
     save_json(run/'config_snapshot.json',{'schema_version':1,'workflow':'user_tiff','segmentation':settings,'datasets':[entry]})
-    np.savez_compressed(folder/'arrays.npz',image=roi,candidate=candidate,labels=labels)
+    np.savez_compressed(folder/'arrays.npz',image=roi,processed=processed,candidate=candidate,labels=labels,
+                        background=background if background is not None else np.empty((0,0)))
     rows=measure_labels(labels,nm_per_pixel)
     for row in rows:
         row.update(area_nm2=None if nm_per_pixel is None else row['area_px']*nm_per_pixel**2,
@@ -108,41 +119,80 @@ def export_user_analysis(project,path,plane,selection,settings,nm_per_pixel=None
     save_csv(folder/'regions.csv',rows,fields)
     # An empty relationship table keeps existing run/review tooling compatible; it is not ground truth.
     save_csv(folder/'overlap_links.csv',[],['reference_id','label','iou','unique','accepted','eligible'])
+    validation=None;reference=None
+    if reference_path:
+        validation,reference=validate_instance_reference(reference_path,labels,candidate,plane.shape,[r0,r1,c0,c1],nm_per_pixel,
+                                    settings.get('link_fraction',.1),settings.get('min_match_iou',.5),folder)
+        entry['reference']=str(Path(reference_path).resolve())
+        save_json(run/'config_snapshot.json',{'schema_version':1,'workflow':'user_tiff','segmentation':settings,'datasets':[entry]})
+    distribution=save_distributions(folder,rows,nm_per_pixel,bins=settings.get('histogram_bins',12))
     summary=dict(id='own_image',role='user_image',predicted_regions=len(rows),
                  complete_predicted_regions=sum(not r['touches_crop_border'] for r in rows),
                  image_sha256=fingerprint(path),arrays_sha256=fingerprint(folder/'arrays.npz'),
                  selection=selection,nm_per_pixel=nm_per_pixel,calibration_source=calibration_source,
                  calibration_verified_by_software=False,validation_status='not performed: no reference annotations supplied',
-                 human_review_status='pending',notes=notes+['Exclude scale bars and labels with a crop. Complete predictions remain unvalidated until reviewed.'],**stats)
+                 human_review_status='pending',distribution=distribution,reference_validation=validation,
+                 notes=notes+['Exclude scale bars and labels with a crop. Complete predictions remain unvalidated until reviewed.'],**stats)
+    if validation:summary['validation_status']=validation['status']
     save_json(folder/'summary.json',summary)
+    code_root=Path(__file__).resolve().parent.parent
+    code_files=['microscopy/user_images.py','microscopy/user_extensions.py','microscopy/measurements.py',
+                'microscopy/core.py','microscopy/seeds.py','analyse_own_image.py','lesson_22.py','lesson_23.py']
     save_json(run/'run_manifest.json',dict(workflow='user_tiff',settings=settings,summary=summary,
-              source_code_sha256={'user_images.py':fingerprint(Path(__file__))},created_utc=datetime.now(timezone.utc).isoformat()))
+              source_code_sha256={name:fingerprint(code_root/name) for name in code_files},
+              python_version=sys.version,package_versions={name:importlib.metadata.version(name) for name in ['numpy','scipy','scikit-image','matplotlib','tifffile','imagecodecs']},
+              created_utc=datetime.now(timezone.utc).isoformat()))
     save_preview(roi,labels,candidate,folder/'preview.png')
+    save_preprocessing_preview(roi,processed,background,folder/'preprocessing.png')
+    if reference is not None:
+        save_preview(roi,reference,reference>0,folder/'reference_preview.png',foreground_title='Reference foreground',label_title='Reference labels: check alignment')
     escaped=html.escape(path.name)
+    try:review_run=str(run.resolve().relative_to(project.resolve()))
+    except ValueError:review_run=str(run.resolve())
     (run/'report.html').write_text(f'''<!doctype html><meta charset="utf-8"><title>Your TIFF particle measurements</title>
 <style>body{{font:17px system-ui;max-width:1100px;margin:40px auto;padding:20px}}img{{max-width:100%}}pre{{white-space:pre-wrap}}</style>
 <h1>Your TIFF: {escaped}</h1><p>{len(rows)} predicted regions; {summary['complete_predicted_regions']} do not touch the crop edge. These are automatic predictions, not validated particle counts.</p>
-<p>Page {selection['page']}; channel handling: {html.escape(selection['channel_handling'])}; native dtype {selection['selected_dtype']}. Threshold {settings['threshold']} ({settings['polarity']} foreground). No 8-bit intensity conversion.</p>
+<p>Page {selection['page']}; channel handling: {html.escape(selection['channel_handling'])}; native dtype {selection['selected_dtype']}. Threshold {settings['threshold']} ({settings['polarity']} foreground) applies to the working image after optional preprocessing. No 8-bit intensity conversion.</p>
 <p>Calibration: {nm_per_pixel if nm_per_pixel is not None else 'not provided; pixels only'} nm/pixel. User-provided calibration is not independently verified.</p>
 <img src="own_image/preview.png" alt="Original intensity, threshold mask and numbered particle outlines">
+<h2>Optional preprocessing: raw pixels remain unchanged</h2><img src="own_image/preprocessing.png" alt="Original, processed and estimated background with intensity scales">
+<h2>Size distributions</h2><img src="own_image/distributions.png" alt="Complete automatic prediction distributions">
+<p>{distribution['included_regions']} complete automatic predictions included; {distribution['border_excluded']} border-cut predictions excluded. These summaries do not establish accuracy or independent sample replication.</p>
+<p><a href="own_image/distribution_summary.json">Mean, median, sample SD, quartiles and exclusion counts</a></p>
 <p><a href="own_image/regions.csv">Particle measurements CSV</a> | <a href="own_image/summary.json">Settings, exclusions and limitations</a></p>
-<p>Area-equivalent diameter is a circle-based summary, not a literal width for irregular particles. Ellipse axes summarize projected shape. Border-cut particles lack complete size information. No reference agreement score is calculated.</p>
+<p>Area-equivalent diameter is a circle-based summary, not a literal width for irregular particles. Ellipse axes summarize projected shape. Border-cut particles lack complete size information. Reference validation: {html.escape(summary['validation_status'])}.</p>
+{('<p><a href="own_image/validation_summary.json">Reference validation diagnostics</a> | <a href="own_image/reference_measurement_errors.csv">Eligible measurement errors</a></p><img src="own_image/reference_preview.png" alt="User reference labels: check alignment">' if validation else '')}
 <pre>{html.escape(chr(10).join(summary['notes']))}</pre>
-<p>Review this exact run: review_particles.py --run results/{stamp} --dataset own_image</p>''',encoding='utf-8')
+<p>Review this exact run: {html.escape('review_particles.py --run "'+review_run+'" --dataset own_image')}</p>''',encoding='utf-8')
     return run,summary
 
 
-def save_preview(roi,labels,candidate,path):
+def save_preprocessing_preview(raw,processed,background,path):
+    import matplotlib.pyplot as plt
+    fig,axes=plt.subplots(1,3,figsize=(12,4),layout='constrained')
+    for ax,array,title in zip(axes,[raw,processed,background],['Original native pixels','Working image','Estimated background']):
+        if array is None:ax.text(.5,.5,'Background correction off',ha='center',va='center',transform=ax.transAxes)
+        else:
+            shown=ax.imshow(array,cmap='gray');fig.colorbar(shown,ax=ax,label='Intensity')
+        ax.set_title(title);ax.set_axis_off()
+    fig.suptitle('Panel intensity ranges may differ; compare the colour bars.')
+    fig.savefig(path,dpi=130);plt.close(fig)
+
+
+def save_preview(roi,labels,candidate,path,foreground_title='Threshold foreground',label_title='Predicted regions: review required'):
     import matplotlib.pyplot as plt
     fig,axes=plt.subplots(1,3,figsize=(13,5),layout='constrained')
     lo,hi=float(roi.min()),float(roi.max())
     axes[0].imshow(roi,cmap='gray',vmin=lo,vmax=hi)
     axes[1].imshow(candidate,cmap='gray',vmin=0,vmax=1)
     axes[2].imshow(roi,cmap='gray',vmin=lo,vmax=hi)
-    for p in regionprops(labels):
+    identities,inverse=np.unique(labels,return_inverse=True)
+    offset=int(identities[0]!=0)
+    compact=inverse.reshape(labels.shape).astype(np.int32)+offset
+    for p in regionprops(compact):
         r0,c0,_,_=p.bbox
         for line in find_contours(np.pad(p.image,1),.5):axes[2].plot(line[:,1]+c0-1,line[:,0]+r0-1,color='cyan',lw=.8)
-        r,c=p.centroid;axes[2].text(c,r,str(p.label),color='yellow',fontsize=8,clip_on=True)
-    for ax,title in zip(axes,['Selected plane: native intensities','Threshold foreground','Predicted regions: review required']):
+        r,c=p.centroid;axes[2].text(c,r,str(identities[p.label-offset]),color='yellow',fontsize=8,clip_on=True)
+    for ax,title in zip(axes,['Selected plane: native intensities',foreground_title,label_title]):
         ax.set_title(title);ax.set_axis_off()
     fig.savefig(path,dpi=130);plt.close(fig)

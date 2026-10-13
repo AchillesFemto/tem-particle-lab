@@ -29,6 +29,8 @@ Built with NumPy, SciPy, scikit-image, Matplotlib, tifffile and imageio. No mach
 
 Choose a file, select its page/channel, preview the threshold and particle boundaries, optionally enter calibration, then export measurements and review results. No reference annotations are required. Native 8-bit/16-bit intensities are preserved; calibration can remain unknown. See [Your own images](YOUR_OWN_IMAGES.md) for the full workflow and scientific assumptions.
 
+[User-image extensions](USER_IMAGE_EXTENSIONS.md) add optional noise/background preprocessing, diameter distributions, manual endpoint checks, per-image batch manifests and optional instance-reference validation. Preprocessing defaults to off; automatic and reviewed measurements remain distinct.
+
 Use **Python 3.12**. Windows PowerShell:
 
 ```powershell
@@ -77,6 +79,8 @@ analyse_own_image.py        Your TIFF: file chooser, preview and annotation-free
 analyse.py                  Configurable example validation and HTML report
 measure_rods.py              Rod dimensions and eligible-reference comparisons
 review_particles.py         Interactive human review and corrections
+manual_lengths.py           Manual endpoint diameter/length checks
+batch_own_images.py          Sequential per-image TIFF manifests and reports
 review_tracking.py          Independent manual tracking-centre review
 compare_rods.py              Original/revised segmentation comparison
 analysis_config*.json       Explicit settings
@@ -84,7 +88,7 @@ validation_protocol*.json   Frozen segmentation/evaluation protocols
 lesson_*.py, LESSON_*.md     Incremental teaching code and explanations
 ```
 
-Generated results, environments, personal review records and local scratch experiments are excluded from Git. The current suite has **35 passing local tests**, including user TIFFs, 16-bit thresholds, page/channel selection, compressed inputs, calibration and review integration. GitHub Actions runs the tests on Windows/Python 3.12; see its actual run status for hosted verification.
+Generated results, environments, personal review records and local scratch experiments are excluded from Git. The current suite has **44 passing local tests**, including user TIFFs, preprocessing, distributions, reference split/merge/miss fixtures, calibration, manual endpoint geometry and batch failure handling. GitHub Actions runs the tests on Windows/Python 3.12; see its actual run status for hosted verification.
 
 ## Scientific scope
 
