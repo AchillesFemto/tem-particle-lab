@@ -28,6 +28,8 @@ def measure_labels(labels, nm_per_pixel=None):
         r0,c0,r1,c1=region.bbox
         rows.append(dict(label=int(region.label),area_px=int(region.area),
                          diameter_px=float(region.equivalent_diameter_area),
+                         area_nm2=None if nm_per_pixel is None else float(region.area)*nm_per_pixel**2,
+                         diameter_nm=None if nm_per_pixel is None else float(region.equivalent_diameter_area)*nm_per_pixel,
                          eccentricity=float(region.eccentricity),
                          touches_crop_border=bool(r0==0 or c0==0 or r1==labels.shape[0] or c1==labels.shape[1]),
                          **shape_measurements(region,nm_per_pixel)))

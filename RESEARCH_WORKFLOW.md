@@ -142,7 +142,7 @@ Run the checks:
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-The suite now has **27 passing tests**, including known mask/motion/Fourier examples, frozen-parameter change detection, pixel-only measurements, empty selections, human-displacement/repeatability arithmetic, rod peak grouping, shape geometry, review edits/undo/provenance and portable run selection. Run the command above to obtain the current count; successful local tests do not establish that hosted CI has run.
+The suite now has **35 passing tests**, including known mask/motion/Fourier examples, frozen-parameter change detection, pixel-only measurements, empty selections, human-displacement/repeatability arithmetic, rod peak grouping, shape geometry, review edits/undo/provenance and portable run selection. Run the command above to obtain the current count; successful local tests do not establish that hosted CI has run.
 
 ## A small experiment
 

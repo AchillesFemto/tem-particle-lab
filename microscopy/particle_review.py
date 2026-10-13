@@ -142,8 +142,11 @@ def prepare_review(project,run,dataset_id,folder=None):
     if len(entries)!=1:raise ValueError('Dataset ID must appear once in this run.')
     entry=entries[0];s=config['segmentation'];source=project/entry['image'];arrays=run/dataset_id/'arrays.npz'
     r0,r1=s['crop_rows'];c0,c1=s['crop_columns']
-    image=np.array(Image.open(source))[r0:r1,c0:c1]
-    if image.ndim==3:image=image[:,:,0]
+    if entry.get('kind')=='user_image':
+        with np.load(arrays) as stored:image=stored['image']
+    else:
+        image=np.array(Image.open(source))[r0:r1,c0:c1]
+        if image.ndim==3:image=image[:,:,0]
     summary=json.loads((run/dataset_id/'summary.json').read_text())
     if fingerprint(source)!=summary['image_sha256']:raise ValueError('Source image changed since this analysis run.')
     folder=Path(folder) if folder else run/dataset_id/'particle_review'
@@ -152,6 +155,9 @@ def prepare_review(project,run,dataset_id,folder=None):
                   crop_rows=[r0,r1],crop_columns=[c0,c1],nm_per_pixel=entry['nm_per_pixel'],
                   source_run=str(run.resolve()),coordinate_convention='Crop-local row,column; polygon vertices are x=column,y=row',
                   reference_polygons_displayed=False)
+    if entry.get('kind')=='user_image':
+        if fingerprint(arrays)!=summary['arrays_sha256']:raise ValueError('Original TIFF run arrays changed outside the analysis tool.')
+        metadata['source_selection']=entry['selection']
     if (folder/'latest.json').exists():
         revision=folder/json.loads((folder/'latest.json').read_text())['revision']
         record=json.loads((revision/'review.json').read_text())

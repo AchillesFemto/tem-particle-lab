@@ -6,3 +6,4 @@ pillow==12.3.0
 scikit-image==0.25.2
 imageio==2.38.1
 imageio-ffmpeg==0.6.0
+imagecodecs==2025.3.30

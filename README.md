@@ -21,6 +21,14 @@ Built with NumPy, SciPy, scikit-image, Matplotlib, tifffile and imageio. No mach
 
 ## Quick start
 
+**To analyse your own TIFF**, install the environment below, then run:
+
+```powershell
+.\.venv\Scripts\python.exe analyse_own_image.py
+```
+
+Choose a file, select its page/channel, preview the threshold and particle boundaries, optionally enter calibration, then export measurements and review results. No reference annotations are required. Native 8-bit/16-bit intensities are preserved; calibration can remain unknown. See [Your own images](YOUR_OWN_IMAGES.md) for the full workflow and scientific assumptions.
+
 Use **Python 3.12**. Windows PowerShell:
 
 ```powershell
@@ -65,7 +73,8 @@ microscopy/                 Reusable analysis, measurements and review functions
 tests/                      Known-answer numerical and workflow checks
 data/                       Public example inputs, annotations and provenance
 docs/assets/                Attributed example figure
-analyse.py                  Configurable batch analysis and HTML report
+analyse_own_image.py        Your TIFF: file chooser, preview and annotation-free measurements
+analyse.py                  Configurable example validation and HTML report
 measure_rods.py              Rod dimensions and eligible-reference comparisons
 review_particles.py         Interactive human review and corrections
 review_tracking.py          Independent manual tracking-centre review
@@ -75,7 +84,7 @@ validation_protocol*.json   Frozen segmentation/evaluation protocols
 lesson_*.py, LESSON_*.md     Incremental teaching code and explanations
 ```
 
-Generated results, environments, personal review records and local scratch experiments are excluded from Git. The current suite has **27 passing local tests**. GitHub Actions runs the tests on Windows/Python 3.12; see its actual run status for hosted verification.
+Generated results, environments, personal review records and local scratch experiments are excluded from Git. The current suite has **35 passing local tests**, including user TIFFs, 16-bit thresholds, page/channel selection, compressed inputs, calibration and review integration. GitHub Actions runs the tests on Windows/Python 3.12; see its actual run status for hosted verification.
 
 ## Scientific scope
 

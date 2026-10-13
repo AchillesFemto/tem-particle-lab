@@ -28,6 +28,11 @@ def main():
     print('Using run:',run,'; dataset:',dataset,flush=True)
     config=json.loads((run/'config_snapshot.json').read_text());entry=next(e for e in config['datasets'] if e['id']==dataset)
     folder=run/dataset;summary=json.loads((folder/'summary.json').read_text())
+    if entry.get('kind')=='user_image':
+        if fingerprint(project/entry['image'])!=summary['image_sha256']:raise ValueError('Source TIFF changed since analysis.')
+        print('Measurements already exported:',folder/'regions.csv')
+        print('No reference annotations supplied: diameter and shape measurements are available, but reference-error metrics are not calculated.')
+        return
     image_path=project/entry['image'];annotation_path=project/entry['annotations']
     for path,key in [(image_path,'image_sha256'),(annotation_path,'annotation_sha256')]:
         if fingerprint(path)!=summary[key]:raise ValueError('Source input changed since this run.')

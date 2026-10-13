@@ -44,7 +44,7 @@ class ReviewWindow:
         from microscopy.measurements import shape_measurements
         properties=regionprops(self.model.labels)
         for ax in [self.overview,self.detail]:
-            ax.clear();ax.imshow(self.image,cmap='gray',vmin=0,vmax=255,interpolation='nearest')
+            ax.clear();ax.imshow(self.image,cmap='gray',vmin=float(self.image.min()),vmax=float(self.image.max()),interpolation='nearest')
             for p in properties:
                 r0,c0,_,_=p.bbox
                 color='yellow' if p.label in self.selected else 'cyan'
