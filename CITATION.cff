@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "Please cite this software and the original data sources when using TEM Particle Lab."
+title: "TEM Particle Lab"
+type: software
+version: 0.1.0
+date-released: 2026-10-13
+license: MIT
+repository-code: "https://github.com/AchillesFemto/tem-particle-lab"
+authors:
+  - family-names: Changal
+    given-names: Saizan
+keywords:
+  - transmission electron microscopy
+  - scientific image analysis
+  - particle segmentation
+  - Python

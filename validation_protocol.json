@@ -1,0 +1,29 @@
+{
+  "protocol": "Parameters selected on development image before inspecting held-out images; no retuning in this run.",
+  "frozen_parameters": {
+    "segmentation": {
+      "threshold": 140,
+      "crop_rows": [
+        300,
+        1100
+      ],
+      "crop_columns": [
+        300,
+        1100
+      ],
+      "window_size": 41,
+      "min_peak_height_px": 20.0,
+      "min_seed_separation_px": 10.0
+    },
+    "validation": {
+      "link_fraction": 0.1,
+      "min_match_iou": 0.5
+    }
+  },
+  "sha256": "39c76417b335bc83abf0eb89134f2fd76016903b43ded8ab93ac8da0a7dd79b9",
+  "held_out_images": [
+    "holdout_L2_3_B",
+    "holdout_L3_elite_3_A"
+  ],
+  "scope": "Same source dataset; specimen independence unverified."
+}

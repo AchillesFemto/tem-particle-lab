@@ -1,0 +1,31 @@
+{
+  "protocol": "Rod revision frozen before acquiring or viewing L2-2-D; no retuning after evaluation.",
+  "created_utc": "2026-10-13T07:30:08.822792+00:00",
+  "frozen_parameters": {
+    "segmentation": {
+      "threshold": 140,
+      "crop_rows": [
+        100,
+        2100
+      ],
+      "crop_columns": [
+        100,
+        2100
+      ],
+      "window_size": 41,
+      "min_peak_height_px": 20.0,
+      "min_seed_separation_px": 10.0,
+      "seed_method": "prominence_grouping",
+      "peak_prominence_fraction": 0.25
+    },
+    "validation": {
+      "link_fraction": 0.1,
+      "min_match_iou": 0.5
+    }
+  },
+  "sha256": "ed016fea157591662ff639cd661a647ad7ade12573896b22eb7b280f2dbb28d0",
+  "held_out_images": [
+    "holdout_rods_L2_2_D"
+  ],
+  "scope": "Same source dataset; specimen independence unverified."
+}

@@ -1,0 +1,28 @@
+{
+  "paper_title": "Real-space imaging of nanoparticle transport and interaction dynamics by graphene liquid cell TEM",
+  "citation": "Kang et al., Science Advances 7, eabi5419 (2021)",
+  "doi": "10.1126/sciadv.abi5419",
+  "source_article": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8641935/",
+  "download_url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC8641935/supplementaryFiles",
+  "license": "CC BY-NC 4.0",
+  "movie": "sciadv.abi5419_movie_s1.mp4",
+  "movie_caption": "Drift-corrected TEM movie of nanoparticle diffusion in quiescent liquid cell",
+  "frame_count": 136,
+  "frame_dimensions": [
+    512,
+    512
+  ],
+  "encoded_playback_fps": 15.0,
+  "selected_zero_based_frame_indices": [
+    26,
+    63,
+    101,
+    118,
+    135
+  ],
+  "timing_note": "Use printed experimental timestamps; 15 fps playback is not the acquisition rate.",
+  "frame_export": "Unmodified decoded RGB frame arrays saved as PNG; source MP4 is lossy and processed, not raw detector data.",
+  "illustration": "published_coalescence_sequence.png is a crop of Figure 3A, not a raw image sequence.",
+  "checksum_note": "Outer and nested ZIP archives passed CRC checks.",
+  "supplement_sha256": "f31516a5bdfb1500d2d55a0abe676e21a6882c4c565c775f9687a396ced9a751"
+}

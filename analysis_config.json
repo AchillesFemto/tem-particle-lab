@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "segmentation": {
+    "threshold": 140,
+    "crop_rows": [
+      300,
+      1100
+    ],
+    "crop_columns": [
+      300,
+      1100
+    ],
+    "window_size": 41,
+    "min_peak_height_px": 20.0,
+    "min_seed_separation_px": 10.0
+  },
+  "validation": {
+    "link_fraction": 0.1,
+    "min_match_iou": 0.5
+  },
+  "datasets": [
+    {
+      "id": "development_L1_1_D",
+      "role": "development",
+      "image": "data/public_tem/L1-1-D.png",
+      "annotations": "data/public_tem/annotations_L1-1-D.json",
+      "nm_per_pixel": 0.11560693641618497
+    },
+    {
+      "id": "holdout_L2_3_B",
+      "role": "held_out_image",
+      "image": "data/holdout_tem/L2-3-B.png",
+      "annotations": "data/holdout_tem/annotations_L2-3-B.json",
+      "nm_per_pixel": null
+    },
+    {
+      "id": "holdout_L3_elite_3_A",
+      "role": "held_out_image",
+      "image": "data/holdout_tem/L3-elite-3-A.png",
+      "annotations": "data/holdout_tem/annotations_L3-elite-3-A.json",
+      "nm_per_pixel": null
+    }
+  ],
+  "tracking": {
+    "movie": "data/public_tem_series/kang_2021/sciadv.abi5419_movie_s1.mp4",
+    "initial_row_column": [
+      177,
+      274
+    ],
+    "half_width_px": 25,
+    "search_radius_px": 8,
+    "sigma_px": 1.5,
+    "min_score": 0.5,
+    "nm_per_pixel": 0.07042253521126761,
+    "acquisition_fps": 7.5,
+    "manual_reference": "data/tracking_review/manual_centres.csv",
+    "review_frames": [
+      0,
+      27,
+      54,
+      81,
+      108,
+      135
+    ],
+    "repeats_per_frame": 3
+  },
+  "uncertainty": {
+    "sensitivity_sigmas_px": [
+      1.0,
+      1.5,
+      2.0
+    ],
+    "synthetic_runs": 30,
+    "synthetic_noise_sd": 18.0,
+    "random_seed": 2801
+  },
+  "scientific_notes": [
+    "Same dataset, new images: independent of prior parameter tuning, not established independent specimens.",
+    "Held-out image calibration is unverified; report their size measurements in pixels only.",
+    "Manual tracking validation is pending until a person independently clicks consistent particle centres.",
+    "Sensitivity and synthetic-model errors are not confidence intervals for the experimental trajectory."
+  ]
+}
