@@ -101,7 +101,7 @@ class OwnImageWindow:
             lo,hi=float(working.min()),float(working.max())
             self.scale.configure(from_=lo,to=hi if hi>lo else lo+1,resolution=max((hi-lo)/1000,1e-6) if self.values['gaussian_sigma'].get()!='0' or self.values['background_radius'].get()!='0' or roi.dtype.kind=='f' else 1)
             self.threshold.set(self.args.threshold if self.args.threshold is not None and lo<=self.args.threshold<=hi else (lo+hi)/2)
-            self.plane_info.set(f"Selected {roi.shape}, {roi.dtype}; range {lo:g} to {hi:g}.\nInitial midpoint is a starting guess, not validated segmentation.")
+            self.plane_info.set(f"Selected {roi.shape}, {roi.dtype}; raw range {float(roi.min()):g} to {float(roi.max()):g}.\nWorking range {lo:g} to {hi:g}. Starting threshold is a guess, not validation.")
             self.preview()
         except (ValueError,OSError,ImportError) as error:
             if self.initializing:self.message.set(str(error).replace('Choose --channel INDEX','Select a Channel and click Load'))
@@ -134,6 +134,7 @@ class OwnImageWindow:
             if self.threshold.get()!=settings['threshold']:
                 settings['threshold']=float(self.threshold.get())
                 processed,background,candidate,labels,notes,stats=process_and_segment(roi,settings)
+            self.plane_info.set(f"Raw {roi.shape}, {roi.dtype}: {float(roi.min()):g} to {float(roi.max()):g}.\nWorking range {lo:g} to {hi:g}; display ranges may differ.")
             for ax in self.axes:ax.clear();ax.set_axis_off()
             lo,hi=float(roi.min()),float(roi.max())
             self.axes[0].imshow(roi,cmap='gray',vmin=lo,vmax=hi);self.axes[0].set_title('Selected original plane')

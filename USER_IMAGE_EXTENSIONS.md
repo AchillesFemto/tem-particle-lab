@@ -58,6 +58,8 @@ The first line calculates the Euclidean straight-line separation between the two
 
 A hand-selected caliper span is not automatically the same quantity as area-equivalent diameter or ellipse length. The tool therefore does not label their difference an accuracy error. Endpoint choices have uncertainty and can be biased; hiding outlines does not establish independent ground truth. Curved centreline length, 3D size and instrument calibration are not inferred.
 
+When a label is supplied, its automatic crop-border flag and review status are also recorded. A span on a partially visible particle must not be presented as its complete size without justification.
+
 **Experiment:** repeat an endpoint measurement three times without looking at earlier endpoints. Predict how shifting one endpoint by one pixel affects the span; compare the repeated values rather than assuming click precision is absolute physical accuracy.
 
 ## 4. Batch analysis of your TIFFs
@@ -85,6 +87,8 @@ Choose the optional reference in the window before export, or run:
 ```powershell
 .\.venv\Scripts\python.exe analyse_own_image.py --image "sample.tif" --threshold 140 --reference "reference_instances.tif"
 ```
+
+An instance-label TIFF assigns each pixel to at most one particle. It cannot preserve overlapping reference masks for two projected objects at the same pixel; unresolved overlaps need a different annotation representation or explicit exclusion.
 
 The same crop is applied to source and reference. Image dimensions alone cannot verify registration, page identity, annotation correctness or exhaustive annotation coverage: inspect the exported reference preview. If only some particles are annotated, unlinked predictions cannot automatically be called false positives.
 
